@@ -21,8 +21,10 @@
   "children": [],
   "parent": null,
   "relatedFiles": [
-    ".trellis/spec/backend/"
+    ".trellis/spec/index.md",
+    ".trellis/spec/backend/",
+    ".trellis/spec/frontend/"
   ],
-  "notes": "First-time setup task created by trellis init (backend project)",
+  "notes": "First-time setup task created by trellis init; backend and frontend specs initialized from local Go/React code.",
   "meta": {}
 }

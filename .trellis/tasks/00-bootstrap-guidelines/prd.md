@@ -21,8 +21,9 @@ the rest conversationally.
 
 ## Status (update the checkboxes as you complete each item)
 
-- [ ] Fill backend guidelines
-- [ ] Add code examples
+- [x] Fill backend guidelines
+- [x] Add code examples
+- [x] Add frontend guidelines for React work
 
 ---
 
@@ -44,6 +45,12 @@ the rest conversationally.
 
 `.trellis/spec/guides/` contains general thinking guides pre-filled with
 best practices. Customize only if something clearly doesn't fit this project.
+
+### Frontend guidelines
+
+The local project also contains React frontends. The default frontend is
+documented under `.trellis/spec/frontend/`; new UI work should load those specs
+in addition to backend specs when the task spans API and UI.
 
 ---
 
