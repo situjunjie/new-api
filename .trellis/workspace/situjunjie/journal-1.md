@@ -5,3 +5,36 @@
 
 ---
 
+
+
+## Session 1: Bootstrap project specs
+
+**Date**: 2026-05-22
+**Task**: Bootstrap project specs
+**Branch**: `main-gigi`
+
+### Summary
+
+Initialized Trellis backend and frontend specs for the Go/React new-api gateway, including directory, database, error, logging, UI, routing, data-flow, and quality guidelines.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5f68699b` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
