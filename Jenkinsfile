@@ -65,19 +65,9 @@ pipeline {
             cp ${COMPOSE_SOURCE} ${DEPLOY_DIR}/${COMPOSE_FILE}
             cd ${DEPLOY_DIR}
 
-            compose() {
-              if docker compose version >/dev/null 2>&1; then
-                docker compose "$@"
-              elif command -v docker-compose >/dev/null 2>&1; then
-                docker-compose "$@"
-              else
-                echo "Docker Compose is required. Install the Docker Compose V2 plugin or docker-compose V1." >&2
-                exit 1
-              fi
-            }
-
-            compose -f ${COMPOSE_FILE} pull
-            compose -f ${COMPOSE_FILE} up -d
+            docker-compose --version
+            docker-compose -f ${COMPOSE_FILE} pull
+            docker-compose -f ${COMPOSE_FILE} up -d
             docker image prune -f
           '''
         }

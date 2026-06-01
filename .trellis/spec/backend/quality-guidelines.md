@@ -86,8 +86,11 @@ RUN go mod download
   `deploy/docker-compose.prod.yml` -> `/data/new-api-gigi/docker-compose.yml`
 
 ### 3. Contracts
-- Jenkins deployment scripts must detect Compose V2 first and fall back to
-  Compose V1 before running `pull` or `up`.
+- Jenkins deployment scripts should use the Compose command known to exist on
+  the deployment host. For the `/data/new-api-gigi` host, use
+  `docker-compose`.
+- Deployment scripts should print the Compose version before `pull`/`up` so CI
+  logs prove which command path was executed.
 - Production compose files used by CI should keep a `version` field so older
   Compose V1 installations can parse the file.
 - CI should fail with an explicit message if neither Compose command is
@@ -102,8 +105,9 @@ RUN go mod download
   `version` and uses compatible service keys.
 
 ### 5. Good/Base/Bad Cases
-- Good: wrapper function chooses `docker compose` or `docker-compose` at runtime.
-- Base: deployment host has Docker Compose V2 plugin installed.
+- Good: use `docker-compose` when the target host reports
+  `Docker Compose version v2.27.0` from `docker-compose --version`.
+- Base: deployment host has one verified Compose command installed.
 - Bad: Jenkinsfile hard-codes `docker compose -f ...` without a fallback.
 
 ### 6. Tests Required
@@ -123,18 +127,8 @@ docker compose -f docker-compose.yml up -d
 
 #### Correct
 ```sh
-compose() {
-  if docker compose version >/dev/null 2>&1; then
-    docker compose "$@"
-  elif command -v docker-compose >/dev/null 2>&1; then
-    docker-compose "$@"
-  else
-    echo "Docker Compose is required." >&2
-    exit 1
-  fi
-}
-
-compose -f docker-compose.yml up -d
+docker-compose --version
+docker-compose -f docker-compose.yml up -d
 ```
 
 ## Testing Expectations
