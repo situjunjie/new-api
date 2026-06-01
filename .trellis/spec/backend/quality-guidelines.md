@@ -20,6 +20,58 @@ advice.
   Common locations are `common/`, `relay/common/`, `relay/helper/`, `service/`,
   `setting/`, and `pkg/`.
 
+## Docker Build Module Proxy Contract
+
+### 1. Scope / Trigger
+- Trigger: Docker image builds run `go mod download` inside Alpine builder
+  stages and may execute from CI networks that cannot reach `proxy.golang.org`.
+
+### 2. Signatures
+- Docker build args:
+  - `GOPROXY`, default `https://goproxy.cn,direct`
+  - `GOSUMDB`, default `sum.golang.org`
+
+### 3. Contracts
+- Production and dev Dockerfiles must expose the same `GOPROXY` and `GOSUMDB`
+  build args before `RUN go mod download`.
+- The build stage must export those args through `ENV GOPROXY=... GOSUMDB=...`
+  so Go commands use them consistently.
+- CI may override either value with `docker build --build-arg KEY=value`.
+
+### 4. Validation & Error Matrix
+- `proxy.golang.org` timeout in CI -> keep or override `GOPROXY` to a reachable
+  proxy and retry the Docker build.
+- Internal/private module checksum failure -> override `GOSUMDB` or use
+  `GONOSUMDB` only for the affected private module path.
+- Proxy unavailable -> include `direct` as the last `GOPROXY` entry.
+
+### 5. Good/Base/Bad Cases
+- Good: `GOPROXY=https://goproxy.cn,direct` for China-hosted Jenkins agents.
+- Base: `GOPROXY=https://proxy.golang.org,direct` for unrestricted networks.
+- Bad: relying on Go's implicit default in Dockerfiles used by CI.
+
+### 6. Tests Required
+- For Dockerfile-only changes, run a Docker build of the affected file when the
+  daemon is available and verify `go mod download` reaches the configured
+  proxy.
+- If Docker is unavailable locally, report that limitation and provide the exact
+  build command for CI verification.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```dockerfile
+RUN go mod download
+```
+
+#### Correct
+```dockerfile
+ARG GOPROXY=https://goproxy.cn,direct
+ARG GOSUMDB=sum.golang.org
+ENV GOPROXY=${GOPROXY} GOSUMDB=${GOSUMDB}
+RUN go mod download
+```
+
 ## Testing Expectations
 
 Choose the narrowest tests that cover the changed behavior:
