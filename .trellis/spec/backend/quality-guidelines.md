@@ -72,6 +72,71 @@ ENV GOPROXY=${GOPROXY} GOSUMDB=${GOSUMDB}
 RUN go mod download
 ```
 
+## CI Docker Compose Deployment Contract
+
+### 1. Scope / Trigger
+- Trigger: Jenkins deployment runs Docker Compose on the target host, where the
+  host may have either Docker Compose V2 (`docker compose`) or V1
+  (`docker-compose`).
+
+### 2. Signatures
+- Compose V2 command shape: `docker compose -f <file> <command>`
+- Compose V1 command shape: `docker-compose -f <file> <command>`
+- Production compose path copied by CI:
+  `deploy/docker-compose.prod.yml` -> `/data/new-api-gigi/docker-compose.yml`
+
+### 3. Contracts
+- Jenkins deployment scripts must detect Compose V2 first and fall back to
+  Compose V1 before running `pull` or `up`.
+- Production compose files used by CI should keep a `version` field so older
+  Compose V1 installations can parse the file.
+- CI should fail with an explicit message if neither Compose command is
+  installed.
+
+### 4. Validation & Error Matrix
+- `unknown shorthand flag: 'f' in -f` after `docker compose -f ...` -> the host
+  does not support the Compose V2 command path; fall back to `docker-compose`.
+- `docker-compose: not found` and `docker compose version` fails -> install
+  either Docker Compose V2 plugin or Docker Compose V1 on the deployment host.
+- Compose file parse errors on V1 -> ensure the file declares a supported
+  `version` and uses compatible service keys.
+
+### 5. Good/Base/Bad Cases
+- Good: wrapper function chooses `docker compose` or `docker-compose` at runtime.
+- Base: deployment host has Docker Compose V2 plugin installed.
+- Bad: Jenkinsfile hard-codes `docker compose -f ...` without a fallback.
+
+### 6. Tests Required
+- For Jenkinsfile deployment changes, run shell syntax validation where possible
+  and verify the target host reports either `docker compose version` or
+  `docker-compose version`.
+- For compose file changes, run `docker compose -f deploy/docker-compose.prod.yml
+  config` or `docker-compose -f deploy/docker-compose.prod.yml config` on a host
+  with the matching command.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```sh
+docker compose -f docker-compose.yml up -d
+```
+
+#### Correct
+```sh
+compose() {
+  if docker compose version >/dev/null 2>&1; then
+    docker compose "$@"
+  elif command -v docker-compose >/dev/null 2>&1; then
+    docker-compose "$@"
+  else
+    echo "Docker Compose is required." >&2
+    exit 1
+  fi
+}
+
+compose -f docker-compose.yml up -d
+```
+
 ## Testing Expectations
 
 Choose the narrowest tests that cover the changed behavior:
