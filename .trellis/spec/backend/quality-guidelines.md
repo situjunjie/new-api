@@ -105,6 +105,9 @@ RUN go mod download
   prove which command path was executed.
 - Production compose files used by CI should keep a `version` field so older
   Compose V1 installations can parse the file.
+- Production compose `container_name` values must be project-specific, not
+  generic names like `redis`, `postgres`, or `new-api`, because Docker container
+  names are global on the host.
 - CI should fail with an explicit message if neither Compose command is
   installed.
 
@@ -121,12 +124,17 @@ RUN go mod download
 - Registry auth failure during `compose pull` from a containerized Compose
   fallback -> pull the private app image with Jenkins' Docker CLI first and run
   Compose `up` without a separate Compose `pull`.
+- `Conflict. The container name "/redis" is already in use` -> rename production
+  service containers to project-specific names, for example
+  `new-api-gigi-redis`.
 - Compose file parse errors on V1 -> ensure the file declares a supported
   `version` and uses compatible service keys.
 
 ### 5. Good/Base/Bad Cases
 - Good: use `docker-compose` when the Jenkins agent reports
   `Docker Compose version v2.27.0` from `docker-compose --version`.
+- Good: production containers are named `new-api-gigi`,
+  `new-api-gigi-redis`, and `new-api-gigi-postgres`.
 - Base: Jenkins agent has one verified Compose command installed or can run the
   containerized Compose fallback.
 - Bad: Jenkinsfile hard-codes `docker compose -f ...` without a fallback.
