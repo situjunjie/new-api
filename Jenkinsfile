@@ -15,6 +15,7 @@ pipeline {
     DEPLOY_DIR = '/data/new-api-gigi'
     COMPOSE_SOURCE = 'deploy/docker-compose.prod.yml'
     COMPOSE_FILE = 'docker-compose.yml'
+    COMPOSE_RUNNER_IMAGE = 'docker/compose:1.29.2'
     NEW_API_ENV_FILE = '.env'
   }
 
@@ -65,9 +66,23 @@ pipeline {
             cp ${COMPOSE_SOURCE} ${DEPLOY_DIR}/${COMPOSE_FILE}
             cd ${DEPLOY_DIR}
 
-            docker-compose --version
-            docker-compose -f ${COMPOSE_FILE} pull
-            docker-compose -f ${COMPOSE_FILE} up -d
+            compose() {
+              if command -v docker-compose >/dev/null 2>&1; then
+                docker-compose "$@"
+              else
+                echo "docker-compose not found in Jenkins agent; using ${COMPOSE_RUNNER_IMAGE}"
+                docker run --rm \
+                  -v /var/run/docker.sock:/var/run/docker.sock \
+                  -v ${DEPLOY_DIR}:${DEPLOY_DIR} \
+                  -w ${DEPLOY_DIR} \
+                  -e NEW_API_ENV_FILE=${NEW_API_ENV_FILE} \
+                  ${COMPOSE_RUNNER_IMAGE} "$@"
+              fi
+            }
+
+            compose --version
+            compose -f ${COMPOSE_FILE} pull
+            compose -f ${COMPOSE_FILE} up -d
             docker image prune -f
           '''
         }

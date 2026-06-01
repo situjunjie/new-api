@@ -82,13 +82,16 @@ RUN go mod download
 ### 2. Signatures
 - Compose V2 command shape: `docker compose -f <file> <command>`
 - Compose V1 command shape: `docker-compose -f <file> <command>`
+- Containerized Compose fallback:
+  `docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v <deploy_dir>:<deploy_dir> -w <deploy_dir> docker/compose:1.29.2 ...`
 - Production compose path copied by CI:
   `deploy/docker-compose.prod.yml` -> `/data/new-api-gigi/docker-compose.yml`
 
 ### 3. Contracts
-- Jenkins deployment scripts should use the Compose command known to exist on
-  the deployment host. For the `/data/new-api-gigi` host, use
-  `docker-compose`.
+- Jenkins deployment scripts should use `docker-compose` when it exists in the
+  Jenkins agent.
+- If `docker-compose` is absent in the Jenkins agent, deployment may run
+  Compose from a temporary container using the mounted Docker socket.
 - Deployment scripts should print the Compose version before `pull`/`up` so CI
   logs prove which command path was executed.
 - Production compose files used by CI should keep a `version` field so older
@@ -99,15 +102,17 @@ RUN go mod download
 ### 4. Validation & Error Matrix
 - `unknown shorthand flag: 'f' in -f` after `docker compose -f ...` -> the host
   does not support the Compose V2 command path; fall back to `docker-compose`.
-- `docker-compose: not found` and `docker compose version` fails -> install
-  either Docker Compose V2 plugin or Docker Compose V1 on the deployment host.
+- `docker-compose: not found` from a path under `/var/jenkins_home/...` -> the
+  Jenkins agent/container lacks the binary even if the host has it; use the
+  containerized Compose fallback or install Compose in the agent image.
 - Compose file parse errors on V1 -> ensure the file declares a supported
   `version` and uses compatible service keys.
 
 ### 5. Good/Base/Bad Cases
-- Good: use `docker-compose` when the target host reports
+- Good: use `docker-compose` when the Jenkins agent reports
   `Docker Compose version v2.27.0` from `docker-compose --version`.
-- Base: deployment host has one verified Compose command installed.
+- Base: Jenkins agent has one verified Compose command installed or can run the
+  containerized Compose fallback.
 - Bad: Jenkinsfile hard-codes `docker compose -f ...` without a fallback.
 
 ### 6. Tests Required
@@ -127,8 +132,20 @@ docker compose -f docker-compose.yml up -d
 
 #### Correct
 ```sh
-docker-compose --version
-docker-compose -f docker-compose.yml up -d
+compose() {
+  if command -v docker-compose >/dev/null 2>&1; then
+    docker-compose "$@"
+  else
+    docker run --rm \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -v /data/new-api-gigi:/data/new-api-gigi \
+      -w /data/new-api-gigi \
+      docker/compose:1.29.2 "$@"
+  fi
+}
+
+compose --version
+compose -f docker-compose.yml up -d
 ```
 
 ## Testing Expectations
