@@ -15,6 +15,7 @@ pipeline {
     DEPLOY_DIR = '/data/new-api-gigi'
     COMPOSE_SOURCE = 'deploy/docker-compose.prod.yml'
     COMPOSE_FILE = 'docker-compose.yml'
+    APP_CONTAINER = 'new-api-gigi'
     COMPOSE_RUNNER_IMAGE = 'docker/compose:1.29.2'
     FILE_SYNC_IMAGE = 'busybox:1.36'
     NEW_API_ENV_FILE = '.env'
@@ -97,8 +98,20 @@ pipeline {
     stage('Health Check') {
       steps {
         sh '''
-          sleep 10
-          curl -fsS http://127.0.0.1:3000/api/status
+          timeout 120 sh -c '
+            while true; do
+              status=$(docker inspect -f "{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}" ${APP_CONTAINER} 2>/dev/null || true)
+              if [ "$status" = "healthy" ]; then
+                break
+              fi
+              if [ "$status" = "unhealthy" ]; then
+                echo "Container ${APP_CONTAINER} is unhealthy" >&2
+                exit 1
+              fi
+              sleep 5
+            done
+          '
+          docker exec ${APP_CONTAINER} wget -q -O - http://127.0.0.1:3000/api/status | grep -o '"success":\\s*true'
         '''
       }
     }

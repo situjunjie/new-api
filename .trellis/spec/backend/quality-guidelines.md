@@ -86,6 +86,8 @@ RUN go mod download
   `docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v <deploy_dir>:<deploy_dir> -w <deploy_dir> docker/compose:1.29.2 ...`
 - Host deploy-file sync:
   `docker run --rm -i -v <deploy_dir>:<deploy_dir> -w <deploy_dir> busybox:1.36 sh -c "cat > docker-compose.yml" < deploy/docker-compose.prod.yml`
+- Container health check:
+  `docker inspect -f "{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}" new-api-gigi`
 - Production compose path copied by CI:
   `deploy/docker-compose.prod.yml` -> `/data/new-api-gigi/docker-compose.yml`
 
@@ -101,6 +103,10 @@ RUN go mod download
 - Pull private deployment images with the Jenkins Docker CLI after
   `docker login`, before invoking containerized Compose. Do not rely on the
   Compose runner container inheriting Jenkins' Docker auth config.
+- Jenkins health checks must not use `127.0.0.1` for services published on the
+  Docker host when Jenkins runs inside a container. In that context, localhost
+  is the Jenkins container. Check the target container health through Docker
+  inspect or run the HTTP probe inside the app container.
 - Deployment scripts should print the Compose version before `up` so CI logs
   prove which command path was executed.
 - Production compose files used by CI should keep a `version` field so older
@@ -127,6 +133,9 @@ RUN go mod download
 - `Conflict. The container name "/redis" is already in use` -> rename production
   service containers to project-specific names, for example
   `new-api-gigi-redis`.
+- Jenkins `curl http://127.0.0.1:3000/api/status` timeout while the host curl
+  succeeds -> Jenkins is running inside a container; replace localhost health
+  checks with Docker container health inspection or `docker exec`.
 - Compose file parse errors on V1 -> ensure the file declares a supported
   `version` and uses compatible service keys.
 
