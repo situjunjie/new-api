@@ -84,6 +84,8 @@ RUN go mod download
 - Compose V1 command shape: `docker-compose -f <file> <command>`
 - Containerized Compose fallback:
   `docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v <deploy_dir>:<deploy_dir> -w <deploy_dir> docker/compose:1.29.2 ...`
+- Host deploy-file sync:
+  `docker run --rm -i -v <deploy_dir>:<deploy_dir> -w <deploy_dir> busybox:1.36 sh -c "cat > docker-compose.yml" < deploy/docker-compose.prod.yml`
 - Production compose path copied by CI:
   `deploy/docker-compose.prod.yml` -> `/data/new-api-gigi/docker-compose.yml`
 
@@ -92,8 +94,15 @@ RUN go mod download
   Jenkins agent.
 - If `docker-compose` is absent in the Jenkins agent, deployment may run
   Compose from a temporary container using the mounted Docker socket.
-- Deployment scripts should print the Compose version before `pull`/`up` so CI
-  logs prove which command path was executed.
+- When Jenkins itself runs inside a container, deploy files must be written to
+  the Docker daemon host path through a helper container. Writing to
+  `/data/new-api-gigi` inside the Jenkins container does not make the file
+  visible to sibling containers launched through the host Docker socket.
+- Pull private deployment images with the Jenkins Docker CLI after
+  `docker login`, before invoking containerized Compose. Do not rely on the
+  Compose runner container inheriting Jenkins' Docker auth config.
+- Deployment scripts should print the Compose version before `up` so CI logs
+  prove which command path was executed.
 - Production compose files used by CI should keep a `version` field so older
   Compose V1 installations can parse the file.
 - CI should fail with an explicit message if neither Compose command is
@@ -105,6 +114,13 @@ RUN go mod download
 - `docker-compose: not found` from a path under `/var/jenkins_home/...` -> the
   Jenkins agent/container lacks the binary even if the host has it; use the
   containerized Compose fallback or install Compose in the agent image.
+- `FileNotFoundError: ./docker-compose.yml` from `docker/compose` fallback ->
+  the compose file was written inside the Jenkins container, not to the Docker
+  daemon host path; sync it through a helper container mounted to the deploy
+  directory.
+- Registry auth failure during `compose pull` from a containerized Compose
+  fallback -> pull the private app image with Jenkins' Docker CLI first and run
+  Compose `up` without a separate Compose `pull`.
 - Compose file parse errors on V1 -> ensure the file declares a supported
   `version` and uses compatible service keys.
 
@@ -144,8 +160,13 @@ compose() {
   fi
 }
 
+docker pull 192.168.16.102:8082/gigi-docker/new-api-gigi:latest
+docker run --rm -i \
+  -v /data/new-api-gigi:/data/new-api-gigi \
+  -w /data/new-api-gigi \
+  busybox:1.36 sh -c "cat > docker-compose.yml" < deploy/docker-compose.prod.yml
 compose --version
-compose -f docker-compose.yml up -d
+compose -f docker-compose.yml up -d --remove-orphans
 ```
 
 ## Testing Expectations

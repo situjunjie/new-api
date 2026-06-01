@@ -16,6 +16,7 @@ pipeline {
     COMPOSE_SOURCE = 'deploy/docker-compose.prod.yml'
     COMPOSE_FILE = 'docker-compose.yml'
     COMPOSE_RUNNER_IMAGE = 'docker/compose:1.29.2'
+    FILE_SYNC_IMAGE = 'busybox:1.36'
     NEW_API_ENV_FILE = '.env'
   }
 
@@ -62,15 +63,20 @@ pipeline {
         )]) {
           sh '''
             echo "$DOCKER_PASS" | docker login ${REGISTRY} -u "$DOCKER_USER" --password-stdin
-            mkdir -p ${DEPLOY_DIR}
-            cp ${COMPOSE_SOURCE} ${DEPLOY_DIR}/${COMPOSE_FILE}
-            cd ${DEPLOY_DIR}
+
+            docker pull ${IMAGE}:latest
+
+            docker run --rm -i \
+              -v ${DEPLOY_DIR}:${DEPLOY_DIR} \
+              -w ${DEPLOY_DIR} \
+              ${FILE_SYNC_IMAGE} sh -c "cat > ${COMPOSE_FILE}" < ${COMPOSE_SOURCE}
 
             compose() {
-              if command -v docker-compose >/dev/null 2>&1; then
+              if command -v docker-compose >/dev/null 2>&1 && [ -f "${DEPLOY_DIR}/${COMPOSE_FILE}" ]; then
+                cd ${DEPLOY_DIR}
                 docker-compose "$@"
               else
-                echo "docker-compose not found in Jenkins agent; using ${COMPOSE_RUNNER_IMAGE}"
+                echo "docker-compose is not usable in Jenkins agent; using ${COMPOSE_RUNNER_IMAGE}"
                 docker run --rm \
                   -v /var/run/docker.sock:/var/run/docker.sock \
                   -v ${DEPLOY_DIR}:${DEPLOY_DIR} \
@@ -81,8 +87,7 @@ pipeline {
             }
 
             compose --version
-            compose -f ${COMPOSE_FILE} pull
-            compose -f ${COMPOSE_FILE} up -d
+            compose -f ${COMPOSE_FILE} up -d --remove-orphans
             docker image prune -f
           '''
         }
