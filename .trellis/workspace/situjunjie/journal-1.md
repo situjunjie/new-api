@@ -19,7 +19,9 @@ Initialized Trellis backend and frontend specs for the Go/React new-api gateway,
 
 ### Main Changes
 
-(Add details)
+- Removed `.agents/`, `.codex/`, and `web/default/src/features/usage-logs/data/schema.ts` from Git tracking with `git rm --cached`.
+- Preserved the local files while committing their removal from the repository index.
+- Pushed the cleanup commit to `origin/main-gigi`.
 
 ### Git Commits
 
@@ -29,7 +31,9 @@ Initialized Trellis backend and frontend specs for the Go/React new-api gateway,
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] Verified the working tree was clean after push.
+- [OK] Verified ignored tracked files list was empty with `git ls-files -ci --exclude-standard`.
+- [OK] Verified local ignored files were still present.
 
 ### Status
 
@@ -57,6 +61,39 @@ Initialized Trellis backend and frontend specs for the Go/React new-api gateway,
 ### Git Commits
 
 (No commits - planning session)
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 3: Stop tracking ignored files
+
+**Date**: 2026-06-01
+**Task**: Stop tracking ignored files
+**Branch**: `main-gigi`
+
+### Summary
+
+Removed ignored local agent/config artifacts from Git tracking while preserving local files, then pushed the cleanup commit to origin/main-gigi.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f07acbce` | (see git log) |
 
 ### Testing
 
